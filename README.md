@@ -2,7 +2,7 @@
 
 Clean code copied from Gemini (or any AI chat) so it pastes and runs like code copied from claude.ai.
 
-**Live:** https://j0p3s.github.io/ai-paste-cleaner/
+**Live:** https://j0p3s.github.io/AI-Paste-Cleaner/
 
 ![AI Paste Cleaner screenshot](docs/screenshot.png)
 

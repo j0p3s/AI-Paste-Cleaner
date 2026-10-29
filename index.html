@@ -203,8 +203,8 @@ footer p{margin:4px 0}
       <label class="field">File name <input id="fname" value="clean.txt" spellcheck="false" autocomplete="off"></label>
       <label class="field">Line endings
         <select id="eol">
+          <option value="crlf" selected>CRLF (Windows)</option>
           <option value="lf">LF (Linux, macOS, web)</option>
-          <option value="crlf">CRLF (Windows .bat / .cmd)</option>
         </select>
       </label>
       <label class="switch" title="Copy the cleaned result to the clipboard as soon as you paste"><input type="checkbox" id="autoCopy"> Auto-copy on paste</label>
@@ -533,7 +533,7 @@ const rulesEl = $('#rules'), eolEl = $('#eol'), fnameEl = $('#fname'), autoEl = 
 const tabs = [...document.querySelectorAll('[role="tab"]')];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-const STORE = 'ai-paste-cleaner:v1';
+const STORE = 'ai-paste-cleaner:v2';
 const saved = (() => { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } })();
 const opts = {};
 const resetOpts = () => OPTIONS.forEach(o => { opts[o.id] = o.def; });

@@ -34,7 +34,7 @@ Extras:
 - **Inspect** tab highlights every problem character in place, with its code point on hover.
 - **What was fixed** lists each change with counts.
 - **Auto-copy on paste** cleans and copies in one step.
-- **Line endings:** LF or CRLF. Naming the download `*.cmd` or `*.bat` switches to CRLF automatically. Downloads are UTF-8 without BOM.
+- **Line endings:** CRLF (Windows) by default, or LF. Naming the download `*.sh`, `*.py` or another Unix-style file switches to LF automatically; `*.cmd` / `*.bat` switch back to CRLF. Downloads are UTF-8 without BOM.
 - Rule choices, theme and settings are remembered in your browser.
 
 ## Run locally

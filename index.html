@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Paste Cleaner</title>
+<meta name="description" content="Clean code copied from Gemini and other AI chats. Removes non-breaking spaces, zero-width characters, smart quotes, hidden text and UI labels. Runs entirely in your browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234b33e0'/%3E%3Ctext x='32' y='46' font-size='40' text-anchor='middle' fill='white' font-family='Georgia,serif'%3E%C2%B6%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#e9edf1; --panel:#fbfcfd; --panel-2:#dfe5eb; --ink:#14202b; --muted:#56636f; --line:#c9d2db;
+  --accent:#4b33e0; --accent-ink:#ffffff; --accent-soft:#e3defc;
+  --c-space:#9a5800; --c-space-bg:#fbe6c2;
+  --c-invis:#b8185a; --c-invis-bg:#fbd9e6;
+  --c-typo:#00715f; --c-typo-bg:#cdeee8;
+  --c-hidden:#4b33e0; --c-hidden-bg:#e3defc;
+  --shadow:0 1px 2px rgba(20,32,43,.06),0 6px 18px rgba(20,32,43,.05);
+  --mono:ui-monospace,"Cascadia Code","Cascadia Mono","JetBrains Mono","SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c1219; --panel:#121b25; --panel-2:#1b2633; --ink:#e4eaf0; --muted:#8e9ba8; --line:#243241;
+    --accent:#a395ff; --accent-ink:#120c33; --accent-soft:#2a2457;
+    --c-space:#ffb547; --c-space-bg:#3a2a10;
+    --c-invis:#ff6fa3; --c-invis-bg:#45162b;
+    --c-typo:#4fd6c2; --c-typo-bg:#0f3a35;
+    --c-hidden:#a395ff; --c-hidden-bg:#2a2457;
+    --shadow:none;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0c1219; --panel:#121b25; --panel-2:#1b2633; --ink:#e4eaf0; --muted:#8e9ba8; --line:#243241;
+  --accent:#a395ff; --accent-ink:#120c33; --accent-soft:#2a2457;
+  --c-space:#ffb547; --c-space-bg:#3a2a10;
+  --c-invis:#ff6fa3; --c-invis-bg:#45162b;
+  --c-typo:#4fd6c2; --c-typo-bg:#0f3a35;
+  --c-hidden:#a395ff; --c-hidden-bg:#2a2457;
+  --shadow:none;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;min-height:100vh}
+.wrap{max-width:1320px;margin:0 auto;padding:22px 16px 36px}
+
+/* Header */
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+.brand{display:flex;gap:14px;align-items:center;min-width:0}
+.logo{width:46px;height:46px;border-radius:13px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:700 28px/1 Georgia,"Times New Roman",serif;flex:none}
+h1{font-size:clamp(22px,3.2vw,30px);line-height:1.1;margin:0;letter-spacing:-.02em;font-weight:750}
+h1 .sp{color:var(--accent);font-weight:400;margin:0 .04em;opacity:.85}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.lede{margin:5px 0 0;color:var(--muted);font-size:14px;max-width:68ch}
+.icon-btn{flex:none;width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.icon-btn:hover{border-color:var(--muted)}
+
+/* Toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px 18px;justify-content:space-between;align-items:center;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;box-shadow:var(--shadow)}
+.group{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font:550 14px/1 var(--sans);padding:9px 13px;border-radius:8px;cursor:pointer;display:inline-flex;gap:8px;align-items:center;transition:background-color .15s,border-color .15s}
+.btn:hover{border-color:var(--muted)}
+.btn:active{transform:translateY(1px)}
+.btn svg{flex:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:650}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.quiet{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.quiet:hover{color:var(--ink);border-color:var(--line)}
+kbd{font:600 11px/1 var(--sans);padding:3px 5px;border-radius:4px;border:1px solid currentColor;opacity:.75}
+.field{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
+.field input,.field select{font:13px var(--sans);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 9px}
+.field input{width:13ch}
+.switch{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none}
+.switch input{appearance:none;width:34px;height:20px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;margin:0;transition:background-color .15s;flex:none}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.switch input:checked{background:var(--accent)}
+.switch input:checked::after{transform:translateX(14px)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Panes */
+.panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-width:0;overflow:hidden;box-shadow:var(--shadow);position:relative}
+.pane-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px 8px 12px;border-bottom:1px solid var(--line);min-height:48px;flex-wrap:wrap}
+.pane-title{display:flex;align-items:baseline;gap:10px;min-width:0}
+.pane-title strong{font-size:14px}
+.meta{font-size:12.5px;color:var(--muted);white-space:nowrap}
+textarea.code,.inspect{display:block;width:100%;height:clamp(260px,50vh,620px);margin:0;border:0;resize:vertical;background:transparent;color:var(--ink);font:13.5px/1.6 var(--mono);padding:12px 14px;tab-size:4;-moz-tab-size:4;white-space:pre;overflow:auto;outline:none}
+.inspect{resize:none}
+textarea.code:focus-visible{box-shadow:inset 0 0 0 2px var(--accent-soft)}
+textarea.code::placeholder{color:var(--muted);opacity:.8}
+.pane.drop{outline:2px dashed var(--accent);outline-offset:-6px}
+.tabs{display:flex;gap:2px;background:var(--panel-2);padding:3px;border-radius:9px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:550 13px/1 var(--sans);padding:7px 11px;border-radius:7px;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
+.tabs button[aria-selected="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.count{font:650 11px/1 var(--sans);background:var(--c-invis-bg);color:var(--c-invis);padding:3px 7px;border-radius:999px}
+.count.zero{background:var(--panel);color:var(--muted)}
+.status{font:650 12.5px/1 var(--sans);padding:6px 10px;border-radius:999px;background:var(--panel-2);color:var(--muted);white-space:nowrap}
+.status.fixed{background:var(--accent-soft);color:var(--accent)}
+.status.clean{background:var(--c-typo-bg);color:var(--c-typo)}
+
+/* Highlights (inspect view + report glyphs) */
+mark{background:none;color:inherit;border-radius:3px}
+[data-k="space"]{background:var(--c-space-bg);color:var(--c-space)}
+[data-k="invis"]{background:var(--c-invis-bg);color:var(--c-invis)}
+[data-k="typo"]{background:var(--c-typo-bg);color:var(--c-typo)}
+[data-k="hidden"]{background:var(--c-hidden-bg);color:var(--c-hidden)}
+[data-k="line"]{background:var(--panel-2);color:var(--muted)}
+mark[data-k="space"]{font-weight:800}
+mark[data-k="typo"]{font-weight:800;padding:0 1px}
+mark.pill{font:700 10px/1 var(--sans);padding:2px 4px;margin:0 1px;vertical-align:2px;letter-spacing:.02em}
+.inspect .empty{font-family:var(--sans);color:var(--muted);white-space:normal}
+
+/* Lower area */
+.lower{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:12px;margin-top:12px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px 16px;box-shadow:var(--shadow);min-width:0}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
+.card h2{font-size:16px;margin:0;letter-spacing:-.01em}
+.link{border:0;background:none;color:var(--accent);font:550 13px var(--sans);cursor:pointer;padding:2px 0}
+.link:hover{text-decoration:underline}
+.rule-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 22px}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+legend{font:650 13.5px var(--sans);margin-bottom:4px;padding:0;color:var(--ink)}
+.opt{display:flex;gap:9px;align-items:flex-start;padding:5px 0;cursor:pointer;font-size:14px;line-height:1.35}
+.opt input{margin:2px 0 0;accent-color:var(--accent);width:16px;height:16px;flex:none;cursor:pointer}
+.opt small{display:block;color:var(--muted);font-size:12.5px;margin-top:1px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.dot[data-k="space"]{background:var(--c-space)}
+.dot[data-k="invis"]{background:var(--c-invis)}
+.dot[data-k="typo"]{background:var(--c-typo)}
+.dot[data-k="hidden"]{background:var(--c-hidden)}
+.dot[data-k="line"]{background:var(--muted)}
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:58px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.row:first-child{border-top:0;padding-top:2px}
+.glyph{display:grid;place-items:center;height:28px;border-radius:7px;font:700 10.5px/1 var(--sans);letter-spacing:.02em;overflow:hidden;white-space:nowrap}
+.glyph[data-k="typo"]{font:500 17px/1 var(--mono)}
+.glyph[data-k="line"]{font:700 15px/1 Georgia,serif}
+.name{min-width:0;overflow-wrap:anywhere;line-height:1.3}
+.name small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.n{font:650 13px/1 var(--sans);color:var(--muted);font-variant-numeric:tabular-nums}
+.act{font:650 12px/1 var(--sans);padding:5px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.act.kept{background:var(--panel-2);color:var(--muted)}
+.empty{color:var(--muted);font-size:14px;margin:2px 0}
+.empty.clean{color:var(--c-typo);font-weight:600}
+.alert{border:1px solid var(--c-hidden);background:var(--c-hidden-bg);border-radius:9px;padding:10px 12px;margin-bottom:12px;font-size:14px;line-height:1.45}
+.alert code{font:12.5px var(--mono);background:var(--panel);color:var(--ink);padding:1px 6px;border-radius:4px;overflow-wrap:anywhere}
+footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+footer p{margin:4px 0}
+
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,16px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font:550 14px/1.3 var(--sans);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:20;max-width:calc(100vw - 32px);text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:960px){.lower{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:860px){.panes{grid-template-columns:minmax(0,1fr)} textarea.code,.inspect{height:clamp(200px,38vh,460px)}}
+@media (max-width:560px){
+  .rule-groups{grid-template-columns:minmax(0,1fr)}
+  .row{grid-template-columns:52px minmax(0,1fr) auto;gap:10px}
+  .row .n{display:none}
+  .toolbar .group{width:100%}
+  .lede{font-size:13.5px}
+}
+@media (hover:none),(max-width:600px){kbd{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">¶</span>
+      <div>
+        <h1>AI<span class="sp" aria-hidden="true">␣</span><span class="sr"> </span>paste<span class="sp" aria-hidden="true">␣</span><span class="sr"> </span>cleaner</h1>
+        <p class="lede">Paste code from Gemini or any AI chat. Non-breaking spaces, zero-width characters, smart quotes and copy-button junk are stripped, so it runs like code copied from claude.ai. Nothing leaves your browser.</p>
+      </div>
+    </div>
+    <button id="themeBtn" class="icon-btn" type="button" title="Switch light / dark theme" aria-label="Switch light or dark theme">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17z" fill="currentColor"/></svg>
+    </button>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <button id="pasteBtn" class="btn" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+        Paste
+      </button>
+      <button id="copyBtn" class="btn primary" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy clean <kbd id="modKey">Ctrl</kbd><kbd>Enter</kbd>
+      </button>
+      <button id="dlBtn" class="btn" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <button id="clearBtn" class="btn quiet" type="button">Clear</button>
+      <button id="sampleBtn" class="btn quiet" type="button">Load a dirty sample</button>
+    </div>
+    <div class="group">
+      <label class="field">File name <input id="fname" value="clean.txt" spellcheck="false" autocomplete="off"></label>
+      <label class="field">Line endings
+        <select id="eol">
+          <option value="lf">LF (Linux, macOS, web)</option>
+          <option value="crlf">CRLF (Windows .bat / .cmd)</option>
+        </select>
+      </label>
+      <label class="switch" title="Copy the cleaned result to the clipboard as soon as you paste"><input type="checkbox" id="autoCopy"> Auto-copy on paste</label>
+    </div>
+  </div>
+
+  <main class="panes">
+    <section class="pane" id="inPane" aria-label="Input">
+      <div class="pane-head">
+        <div class="tabs" role="tablist" aria-label="Input view">
+          <button type="button" role="tab" aria-selected="true" data-tab="edit">Input</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="inspect">Inspect <span id="flagCount" class="count zero">0</span></button>
+        </div>
+        <span class="meta" id="inMeta"></span>
+      </div>
+      <textarea id="in" class="code" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Paste code copied from Gemini here (Ctrl+V), or drop a file..."></textarea>
+      <pre id="inspect" class="inspect" hidden></pre>
+    </section>
+
+    <section class="pane" aria-label="Clean output">
+      <div class="pane-head">
+        <div class="pane-title"><strong>Clean output</strong><span class="meta" id="outMeta"></span></div>
+        <span id="status" class="status">Waiting for input</span>
+      </div>
+      <textarea id="out" class="code" wrap="off" spellcheck="false" readonly placeholder="Clean text shows up here."></textarea>
+    </section>
+  </main>
+
+  <section class="lower">
+    <div class="card">
+      <div class="card-head">
+        <h2>Rules</h2>
+        <button id="resetBtn" class="link" type="button">Reset to defaults</button>
+      </div>
+      <div class="rule-groups" id="rules"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>What was fixed</h2></div>
+      <div id="hiddenAlert" class="alert" hidden></div>
+      <div id="report"><p class="empty">Paste something to see every character that gets fixed.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Runs 100% locally: no uploads, no tracking, works offline. Paste anywhere on the page, drop a file on the input, or press Ctrl+Enter to copy.</p>
+  </footer>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+
+// ===== core =====
+const SPACES = {
+  0x00A0:['NBSP','No-break space'], 0x1680:['OGHM','Ogham space mark'],
+  0x2000:['NQSP','En quad'], 0x2001:['MQSP','Em quad'], 0x2002:['ENSP','En space'], 0x2003:['EMSP','Em space'],
+  0x2004:['3MSP','Three-per-em space'], 0x2005:['4MSP','Four-per-em space'], 0x2006:['6MSP','Six-per-em space'],
+  0x2007:['FSP','Figure space'], 0x2008:['PSP','Punctuation space'], 0x2009:['THSP','Thin space'],
+  0x200A:['HSP','Hair space'], 0x202F:['NNBSP','Narrow no-break space'], 0x205F:['MMSP','Medium math space'],
+  0x3000:['IDSP','Ideographic space']
+};
+const ZW = {
+  0x200B:['ZWSP','Zero-width space'], 0x200C:['ZWNJ','Zero-width non-joiner'], 0x200D:['ZWJ','Zero-width joiner'],
+  0x2060:['WJ','Word joiner'], 0xFEFF:['BOM','Byte order mark (zero-width no-break space)'],
+  0x180E:['MVS','Mongolian vowel separator'], 0x00AD:['SHY','Soft hyphen'], 0x034F:['CGJ','Combining grapheme joiner'],
+  0x2061:['FA','Invisible function application'], 0x2062:['IT','Invisible times'], 0x2063:['IS','Invisible separator'],
+  0x2064:['IP','Invisible plus'], 0x115F:['HF','Hangul choseong filler'], 0x1160:['HF','Hangul jungseong filler'],
+  0x3164:['HF','Hangul filler'], 0xFFA0:['HF','Halfwidth Hangul filler']
+};
+const BIDI = {
+  0x200E:['LRM','Left-to-right mark'], 0x200F:['RLM','Right-to-left mark'], 0x061C:['ALM','Arabic letter mark'],
+  0x202A:['LRE','Left-to-right embedding'], 0x202B:['RLE','Right-to-left embedding'], 0x202C:['PDF','Pop directional formatting'],
+  0x202D:['LRO','Left-to-right override'], 0x202E:['RLO','Right-to-left override'],
+  0x2066:['LRI','Left-to-right isolate'], 0x2067:['RLI','Right-to-left isolate'], 0x2068:['FSI','First strong isolate'],
+  0x2069:['PDI','Pop directional isolate']
+};
+const LINESEP = { 0x2028:['LS','Line separator'], 0x2029:['PS','Paragraph separator'], 0x0085:['NEL','Next line'] };
+const CTRL = { 0x00:'NUL', 0x07:'BEL', 0x08:'BS', 0x0B:'VT', 0x0C:'FF', 0x1B:'ESC', 0x7F:'DEL' };
+const QUOTES = {
+  0x201C:['"','Left double quotation mark'], 0x201D:['"','Right double quotation mark'],
+  0x201E:['"','Double low-9 quotation mark'], 0x201F:['"','Double high-reversed-9 quotation mark'],
+  0x2033:['"','Double prime'], 0x301D:['"','Reversed double prime quotation mark'], 0x301E:['"','Double prime quotation mark'],
+  0x2018:["'",'Left single quotation mark'], 0x2019:["'",'Right single quotation mark'],
+  0x201A:["'",'Single low-9 quotation mark'], 0x201B:["'",'Single high-reversed-9 quotation mark'],
+  0x2032:["'",'Prime'], 0x02BC:["'",'Modifier letter apostrophe']
+};
+const DASHES = {
+  0x2010:['-','Hyphen'], 0x2011:['-','Non-breaking hyphen'], 0x2012:['-','Figure dash'], 0x2013:['-','En dash'],
+  0x2212:['-','Minus sign'], 0xFE63:['-','Small hyphen-minus'], 0x2014:['--','Em dash'], 0x2015:['--','Horizontal bar']
+};
+
+// Lines that are copy-button / UI text, not code (Gemini in several UI languages + Material icon names)
+const LABEL_RE = new RegExp('^(?:' + [
+  '(?:(?:use|usa|utilize|utiliza|utilisez)\\s+)?(?:(?:the|o|el|le|il)\\s+)?(?:code with caution|c[óo]digo com cuidado|c[óo]digo con precauci[óo]n|code avec pr[ée]caution|codice con cautela)\\.?',
+  'code mit vorsicht(?:\\s+verwenden)?\\.?',
+  'copy code', 'copy to clipboard', 'copiar c[óo]digo', 'copier le code', 'code kopieren', 'copia(?:\\s+il)?\\s+codice',
+  'code snippet', 'snippet de c[óo]digo', 'fragmento de c[óo]digo', 'extrait de code', 'codeausschnitt', 'snippet di codice',
+  'content_copy', 'expand_less', 'expand_more', 'more_vert'
+].join('|') + ')$', 'iu');
+
+const LANGS = new Set(('bash sh shell zsh fish console terminal powershell pwsh ps1 cmd batch bat dos batchfile ' +
+  'python py python3 javascript js jsx typescript ts tsx node html css scss sass less json jsonc xml yaml yml toml ini ' +
+  'sql mysql postgresql java kotlin kt c c++ cpp c# csharp cs go golang rust rs php ruby rb swift lua perl r dart scala ' +
+  'markdown md text plaintext txt dockerfile makefile nginx apache diff vb vba vbscript vbnet vb.net autohotkey ahk ' +
+  'reg regedit registry assembly asm haskell elixir clojure groovy gradle matlab latex tex graphql svelte vue arduino ' +
+  'verilog vhdl objectivec objective-c code snippet').split(' '));
+LANGS.add('code snippet'); LANGS.add('plain text'); LANGS.add('objective-c');
+
+const PICT = /\p{Extended_Pictographic}/u;
+const EMOJI_MOD = /[\u{1F3FB}-\u{1F3FF}\uFE0F]/u;
+
+function hex(cp){ return 'U+' + cp.toString(16).toUpperCase().padStart(4, '0'); }
+function actText(r){
+  if (r.act) return r.act;
+  if (r.repl === ' ') return '→ space';
+  if (r.repl === '') return 'removed';
+  if (r.repl === '\n') return '→ new line';
+  return '→ ' + r.repl;
+}
+
+function computeRule(cp){
+  let e;
+  if (cp === 9 || cp === 10 || cp === 13) return null;
+  if ((e = SPACES[cp])) return {cat:'spaces', kind:'space', short:e[0], name:e[1], repl:' '};
+  if ((e = LINESEP[cp])) return {cat:'ctrl', kind:'invis', short:e[0], name:e[1], repl:'\n'};
+  if ((e = ZW[cp])) return {cat:'zw', kind:'invis', short:e[0], name:e[1], repl:''};
+  if ((e = BIDI[cp])) return {cat:'bidi', kind:'invis', short:e[0], name:e[1], repl:''};
+  if (cp < 0x20 || cp === 0x7F || (cp >= 0x80 && cp <= 0x9F)) {
+    const s = CTRL[cp];
+    return {cat:'ctrl', kind:'invis', short:s || 'CTL', name:'Control character' + (s ? ' (' + s + ')' : ''), repl:''};
+  }
+  if (cp >= 0xE0000 && cp <= 0xE007F) return {cat:'hidden', kind:'hidden', key:'TAG', code:'U+E0000 to U+E007F', short:'TAG', name:'Unicode tag characters (invisible text)', repl:''};
+  if (cp >= 0xE0100 && cp <= 0xE01EF) return {cat:'hidden', kind:'hidden', key:'VSS', code:'U+E0100 to U+E01EF', short:'VS', name:'Variation selectors supplement (can hide data)', repl:''};
+  if ((e = QUOTES[cp])) return {cat:'quotes', kind:'typo', short:String.fromCodePoint(cp), name:e[1], repl:e[0]};
+  if ((e = DASHES[cp])) return {cat:'dashes', kind:'typo', short:String.fromCodePoint(cp), name:e[1], repl:e[0]};
+  if (cp === 0x2026) return {cat:'ellipsis', kind:'typo', short:'\u2026', name:'Horizontal ellipsis', repl:'...'};
+  if (cp >= 0xFF01 && cp <= 0xFF5E) return {cat:'fullwidth', kind:'typo', key:'FW', code:'U+FF01 to U+FF5E', short:'\uFF21', name:'Fullwidth ASCII characters', repl:String.fromCharCode(cp - 0xFEE0), act:'→ ASCII'};
+  return null;
+}
+const ruleCache = new Map();
+function ruleOf(cp){
+  if (ruleCache.has(cp)) return ruleCache.get(cp);
+  const r = computeRule(cp); ruleCache.set(cp, r); return r;
+}
+
+function isEmojiJoin(cps, i){
+  const p = cps[i - 1], n = cps[i + 1];
+  return !!(p && n && (PICT.test(p) || EMOJI_MOD.test(p)) && PICT.test(n));
+}
+
+function clean(input, o){
+  const chars = new Map();
+  const notes = [];
+  const hidden = [];
+  let cur = '';
+  let text = String(input || '').replace(/\r\n?/g, '\n');
+
+  if (o.nfc) {
+    const n = text.normalize('NFC');
+    if (n !== text) { notes.push({label:'Unicode normalized (NFC)', detail:'Decomposed accents joined into single characters'}); text = n; }
+  }
+
+  // --- character pass ---
+  const cps = Array.from(text);
+  const out = [];
+  let inFlag = false;
+  for (let i = 0; i < cps.length; i++) {
+    const ch = cps[i], cp = ch.codePointAt(0);
+    if (cp === 0x1F3F4) { // black flag: keep subdivision-flag tag sequences (England, Scotland, Wales)
+      const n = cps[i + 1] ? cps[i + 1].codePointAt(0) : 0;
+      inFlag = n >= 0xE0020 && n <= 0xE007E;
+      out.push(ch); continue;
+    }
+    if (inFlag) {
+      if (cp >= 0xE0020 && cp <= 0xE007F) { out.push(ch); if (cp === 0xE007F) inFlag = false; continue; }
+      inFlag = false;
+    }
+    const r = ruleOf(cp);
+    if (!r) { if (cur) { hidden.push(cur); cur = ''; } out.push(ch); continue; }
+    if (cp === 0x200D && isEmojiJoin(cps, i)) { out.push(ch); continue; } // keep ZWJ inside emoji like 👨‍💻
+    if (r.cat === 'hidden') { if (cp >= 0xE0020 && cp <= 0xE007E) cur += String.fromCharCode(cp - 0xE0000); }
+    else if (cur) { hidden.push(cur); cur = ''; }
+    const on = !!o[r.cat];
+    out.push(on ? r.repl : ch);
+    const key = r.key || cp;
+    let e = chars.get(key);
+    if (!e) { e = {key, cat:r.cat, kind:r.kind, short:r.short, name:r.name, code:r.code || hex(cp), act:actText(r), on, count:0}; chars.set(key, e); }
+    e.count++;
+  }
+  if (cur) hidden.push(cur);
+  text = out.join('');
+
+  if (o.accents) {
+    const d = text.normalize('NFD');
+    const m = d.match(/[\u0300-\u036f]/g);
+    if (m) { text = d.replace(/[\u0300-\u036f]/g, '').normalize('NFC'); notes.push({label:'Accents stripped', count:m.length}); }
+  }
+
+  // --- line passes ---
+  let lines = text.split('\n');
+  const blank = l => l.trim() === '';
+
+  if (o.labels) {
+    const removed = [];
+    lines = lines.filter(l => { const t = l.trim(); if (t && t.length < 64 && LABEL_RE.test(t)) { removed.push(t); return false; } return true; });
+    if (removed.length) notes.push({label:'Copy-button text removed', detail:[...new Set(removed)].map(s => '"' + s + '"').join(', '), count:removed.length});
+  }
+  if (o.langhdr) {
+    const idx = lines.findIndex(l => !blank(l));
+    if (idx > -1) {
+      const t = lines[idx].trim();
+      if (LANGS.has(t.toLowerCase()) && lines.slice(idx + 1).some(l => !blank(l))) {
+        lines.splice(idx, 1);
+        notes.push({label:'Language header removed', detail:'"' + t + '" on the first line'});
+      }
+    }
+  }
+  if (o.fences) {
+    let n = 0;
+    lines = lines.filter(l => { if (/^\s*(```|~~~)/.test(l)) { n++; return false; } return true; });
+    if (n) notes.push({label:'Markdown fence lines removed', count:n});
+  }
+  if (o.edges) {
+    let a = 0;
+    const terminal = lines.length > 1 && lines[lines.length - 1] === '';
+    while (lines.length && blank(lines[0])) { lines.shift(); a++; }
+    while (lines.length && blank(lines[lines.length - 1])) { lines.pop(); a++; }
+    if (terminal) a--;
+    if (a > 0) notes.push({label:'Blank lines trimmed at start and end', count:a});
+  }
+  if (o.dblspace && lines.length >= 5) {
+    for (const off of [0, 1]) {
+      let ok = true, content = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if ((i + off) % 2 === 1) { if (!blank(lines[i])) { ok = false; break; } }
+        else if (!blank(lines[i])) content++;
+      }
+      if (ok && content >= 3) {
+        const before = lines.length;
+        lines = lines.filter((_, i) => (i + off) % 2 === 0);
+        notes.push({label:'Double-spaced paste fixed', detail:'Removed the blank line inserted after every line', count:before - lines.length});
+        break;
+      }
+    }
+  }
+  if (o.linenums) {
+    // number, optional | : . separator, then padding; the code column is the narrowest prefix seen
+    const re = /^([ \t]*(\d+)(?:[ \t]*[|:.])?)([ \t]*)/;
+    let prev = null, ok = true, hits = 0, col = Infinity;
+    for (const l of lines) {
+      if (blank(l)) continue;
+      const m = re.exec(l);
+      if (!m || (m[0].length < l.length && !m[3] && !/[|:.]$/.test(m[1]))) { ok = false; break; }
+      const n = +m[2];
+      if (prev !== null && n <= prev) { ok = false; break; }
+      prev = n; hits++;
+      if (m[0].length < l.length) col = Math.min(col, m[0].length);
+    }
+    if (ok && hits >= 2) {
+      lines = lines.map(l => {
+        if (blank(l)) return l;
+        const m = re.exec(l);
+        return m[0].length >= l.length ? '' : l.slice(Math.min(col, m[0].length));
+      });
+      notes.push({label:'Line numbers removed', count:hits});
+    }
+  }
+  if (o.trailing) {
+    let n = 0;
+    lines = lines.map(l => { const t = l.replace(/[ \t]+$/, ''); if (t !== l) n++; return t; });
+    if (n) notes.push({label:'Trailing whitespace trimmed', detail:'Lines that ended in spaces or tabs', count:n});
+  }
+  if (o.collapse) {
+    const res = []; let n = 0;
+    for (const l of lines) { if (blank(l) && res.length && blank(res[res.length - 1])) { n++; continue; } res.push(l); }
+    lines = res;
+    if (n) notes.push({label:'Repeated blank lines collapsed', count:n});
+  }
+  if (o.tabs) {
+    let n = 0;
+    lines = lines.map(l => {
+      if (!l.includes('\t')) return l;
+      n++; let col = 0, s = '';
+      for (const c of l) { if (c === '\t') { const k = 4 - (col % 4); s += ' '.repeat(k); col += k; } else { s += c; col++; } }
+      return s;
+    });
+    if (n) notes.push({label:'Tabs expanded to spaces', count:n});
+  }
+
+  text = lines.join('\n');
+  if (o.finalnl && text && !text.endsWith('\n')) text += '\n';
+  return {text, chars:[...chars.values()], notes, hidden:hidden.filter(s => s.trim())};
+}
+// ===== ui =====
+
+const OPTIONS = [
+  {g:'Invisible characters', id:'spaces', k:'space', label:'Odd spaces become normal spaces', hint:'NBSP, narrow, thin, ideographic. The usual Gemini culprit.', def:true},
+  {g:'Invisible characters', id:'zw', k:'invis', label:'Remove zero-width characters and BOM', hint:'ZWSP, joiners, word joiner, soft hyphen', def:true},
+  {g:'Invisible characters', id:'bidi', k:'invis', label:'Remove text-direction marks', hint:'LRM, RLM and bidi overrides that can disguise code', def:true},
+  {g:'Invisible characters', id:'ctrl', k:'invis', label:'Remove control characters', hint:'NUL, ESC and friends. Unicode line separators become new lines.', def:true},
+  {g:'Invisible characters', id:'hidden', k:'hidden', label:'Remove hidden tag text', hint:'Invisible characters that can smuggle a message or prompt', def:true},
+  {g:'Invisible characters', id:'nfc', k:'line', label:'Normalize Unicode (NFC)', hint:'Joins decomposed accents into single characters', def:true},
+  {g:'Typography', id:'quotes', k:'typo', label:'Curly quotes become " and \'', hint:'Also primes and the modifier apostrophe', def:true},
+  {g:'Typography', id:'dashes', k:'typo', label:'Dashes become - and --', hint:'En dash and minus become -, em dash becomes -- (fixes a mangled --flag)', def:true},
+  {g:'Typography', id:'ellipsis', k:'typo', label:'Ellipsis character becomes ...', def:true},
+  {g:'Typography', id:'fullwidth', k:'typo', label:'Fullwidth letters become ASCII', hint:'ＡＢＣ（） becomes ABC()', def:false},
+  {g:'Typography', id:'accents', k:'typo', label:'Strip accents', hint:'ação becomes acao, for scripts with code page trouble', def:false},
+  {g:'Copy junk', id:'labels', k:'line', label:'Remove copy-button text', hint:'"Use code with caution.", content_copy, Copy code', def:true},
+  {g:'Copy junk', id:'langhdr', k:'line', label:'Remove language header', hint:'A lone "Bash" or "Python" on the first line', def:true},
+  {g:'Copy junk', id:'fences', k:'line', label:'Remove ``` fence lines', hint:'Useful when you copied the whole markdown answer', def:false},
+  {g:'Copy junk', id:'linenums', k:'line', label:'Remove line numbers', hint:'Only applied when every line is numbered in order', def:false},
+  {g:'Lines', id:'dblspace', k:'line', label:'Fix double-spaced paste', hint:'Detects a blank line wedged after every line', def:true},
+  {g:'Lines', id:'trailing', k:'line', label:'Trim trailing whitespace', def:true},
+  {g:'Lines', id:'edges', k:'line', label:'Trim blank lines at start and end', def:true},
+  {g:'Lines', id:'collapse', k:'line', label:'Collapse repeated blank lines', def:false},
+  {g:'Lines', id:'tabs', k:'line', label:'Tabs become 4 spaces', def:false},
+  {g:'Lines', id:'finalnl', k:'line', label:'End with a new line', def:false}
+];
+
+const $ = s => document.querySelector(s);
+const inEl = $('#in'), outEl = $('#out'), inspectEl = $('#inspect'), statusEl = $('#status'), flagEl = $('#flagCount');
+const inMeta = $('#inMeta'), outMeta = $('#outMeta'), reportEl = $('#report'), hiddenEl = $('#hiddenAlert');
+const rulesEl = $('#rules'), eolEl = $('#eol'), fnameEl = $('#fname'), autoEl = $('#autoCopy'), toastEl = $('#toast');
+const tabs = [...document.querySelectorAll('[role="tab"]')];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const STORE = 'ai-paste-cleaner:v1';
+const saved = (() => { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } })();
+const opts = {};
+const resetOpts = () => OPTIONS.forEach(o => { opts[o.id] = o.def; });
+resetOpts();
+if (saved.opts) OPTIONS.forEach(o => { if (typeof saved.opts[o.id] === 'boolean') opts[o.id] = saved.opts[o.id]; });
+if (saved.eol === 'lf' || saved.eol === 'crlf') eolEl.value = saved.eol;
+if (typeof saved.autoCopy === 'boolean') autoEl.checked = saved.autoCopy;
+if (typeof saved.fname === 'string' && saved.fname) fnameEl.value = saved.fname;
+let theme = saved.theme === 'dark' || saved.theme === 'light' ? saved.theme : '';
+
+function save(){
+  try { localStorage.setItem(STORE, JSON.stringify({opts, eol:eolEl.value, autoCopy:autoEl.checked, fname:fnameEl.value, theme})); } catch (e) {}
+}
+function applyTheme(){
+  if (theme) document.documentElement.setAttribute('data-theme', theme);
+  else document.documentElement.removeAttribute('data-theme');
+}
+applyTheme();
+
+if (/Mac|iPhone|iPad/.test(navigator.platform || '')) $('#modKey').textContent = '⌘';
+
+let toastTimer;
+function toast(msg){
+  toastEl.textContent = msg; toastEl.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1900);
+}
+
+function renderRules(){
+  const groups = [], map = {};
+  OPTIONS.forEach(o => { if (!map[o.g]) { map[o.g] = []; groups.push(o.g); } map[o.g].push(o); });
+  rulesEl.innerHTML = groups.map(g => '<fieldset><legend>' + esc(g) + '</legend>' + map[g].map(o =>
+    '<label class="opt"><input type="checkbox" data-opt="' + o.id + '"' + (opts[o.id] ? ' checked' : '') + '>' +
+    '<span><span class="dot" data-k="' + o.k + '"></span>' + esc(o.label) + (o.hint ? '<small>' + esc(o.hint) + '</small>' : '') + '</span></label>'
+  ).join('') + '</fieldset>').join('');
+}
+
+let last = {text:'', chars:[], notes:[], hidden:[]};
+const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+const countLines = s => s ? s.split('\n').length : 0;
+
+function run(){
+  const src = inEl.value;
+  last = clean(src, opts);
+  outEl.value = last.text;
+
+  const flagged = last.chars.reduce((a, c) => a + c.count, 0);
+  const fixedChars = last.chars.filter(c => c.on).reduce((a, c) => a + c.count, 0);
+  const kept = flagged - fixedChars;
+  const fixes = fixedChars + last.notes.reduce((a, n) => a + (n.count || 1), 0);
+
+  flagEl.textContent = flagged;
+  flagEl.classList.toggle('zero', flagged === 0);
+  inMeta.textContent = src ? plural(countLines(src), 'line') + ', ' + plural(src.length, 'char') : '';
+  outMeta.textContent = last.text ? plural(countLines(last.text), 'line') + ', ' + plural(last.text.length, 'char') : '';
+
+  statusEl.className = 'status';
+  if (!src) statusEl.textContent = 'Waiting for input';
+  else if (!fixes && !kept) { statusEl.textContent = 'Already clean'; statusEl.classList.add('clean'); }
+  else { statusEl.textContent = fixes + (fixes === 1 ? ' fix' : ' fixes') + (kept ? ', ' + kept + ' kept' : ''); statusEl.classList.add('fixed'); }
+
+  renderReport(src);
+  if (!inspectEl.hidden) renderInspect();
+}
+
+function renderReport(src){
+  if (last.hidden.length) {
+    hiddenEl.hidden = false;
+    hiddenEl.innerHTML = '<strong>Hidden text found.</strong> Invisible tag characters in the input spell out: ' +
+      last.hidden.map(s => '<code>' + esc(s) + '</code>').join(' ') +
+      (opts.hidden ? '. It has been removed from the output.' : '. It is <strong>still in the output</strong> because that rule is off.');
+  } else { hiddenEl.hidden = true; hiddenEl.innerHTML = ''; }
+
+  if (!src) { reportEl.innerHTML = '<p class="empty">Paste something to see every character that gets fixed.</p>'; return; }
+  const rows = [];
+  last.chars.slice().sort((a, b) => (b.on - a.on) || (b.count - a.count)).forEach(c => {
+    rows.push('<div class="row"><span class="glyph" data-k="' + c.kind + '">' + esc(c.short) + '</span>' +
+      '<span class="name">' + esc(c.name) + '<small>' + esc(c.code) + '</small></span>' +
+      '<span class="n">×' + c.count + '</span>' +
+      '<span class="act' + (c.on ? '' : ' kept') + '">' + esc(c.on ? c.act : 'kept') + '</span></div>');
+  });
+  last.notes.forEach(n => {
+    rows.push('<div class="row"><span class="glyph" data-k="line">¶</span>' +
+      '<span class="name">' + esc(n.label) + (n.detail ? '<small>' + esc(n.detail) + '</small>' : '') + '</span>' +
+      '<span class="n">' + (n.count ? '×' + n.count : '') + '</span><span class="act">fixed</span></div>');
+  });
+  reportEl.innerHTML = rows.length ? '<div class="rows">' + rows.join('') + '</div>'
+    : '<p class="empty clean">No hidden or typographic characters found. This text was already clean.</p>';
+}
+
+function renderInspect(){
+  const src = inEl.value;
+  if (!src) { inspectEl.innerHTML = '<span class="empty">Paste something, then open this tab to see every hidden character highlighted in place.</span>'; return; }
+  let html = '', buf = '', hid = 0;
+  const flushHid = () => { if (hid) { html += '<mark class="pill" data-k="hidden" title="' + hid + ' hidden tag or selector characters">HIDDEN ×' + hid + '</mark>'; hid = 0; } };
+  for (const ch of src) {
+    const cp = ch.codePointAt(0);
+    const r = ruleOf(cp);
+    if (!r) { if (hid) flushHid(); buf += ch; continue; }
+    html += esc(buf); buf = '';
+    if (r.kind === 'hidden') { hid++; continue; }
+    flushHid();
+    const title = esc(hex(cp) + '  ' + r.name + '  (' + (opts[r.cat] ? actText(r) : 'kept') + ')');
+    if (r.kind === 'space') html += '<mark data-k="space" title="' + title + '">·</mark>';
+    else if (r.kind === 'typo') html += '<mark data-k="typo" title="' + title + '">' + esc(ch) + '</mark>';
+    else html += '<mark class="pill" data-k="invis" title="' + title + '">' + esc(r.short) + '</mark>' + (r.repl === '\n' ? '\n' : '');
+  }
+  html += esc(buf); flushHid();
+  inspectEl.innerHTML = html;
+}
+
+const finalString = () => eolEl.value === 'crlf' ? last.text.replace(/\n/g, '\r\n') : last.text;
+
+async function copyText(s){
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(s); return true; } } catch (e) {}
+  const ta = document.createElement('textarea');
+  ta.value = s; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+  ta.remove(); return ok;
+}
+async function doCopy(msg){
+  if (!last.text) { toast('Nothing to copy yet. Paste some code first.'); return; }
+  const ok = await copyText(finalString());
+  toast(ok ? (msg || 'Copied clean text') + (eolEl.value === 'crlf' ? ' with CRLF line endings' : '')
+           : 'The browser blocked copying. Select the output and press Ctrl+C.');
+}
+
+function setInput(t, fromPaste){
+  inEl.value = t;
+  run();
+  if (fromPaste && autoEl.checked) doCopy('Cleaned and copied');
+}
+
+const LF_EXT = new Set(['sh','bash','zsh','py','js','mjs','ts','json','yml','yaml','toml','md','html','css','rb','go','rs','php','pl','lua']);
+function onFname(){
+  const m = /\.([a-z0-9]+)$/i.exec(fnameEl.value.trim());
+  if (m) {
+    const x = m[1].toLowerCase();
+    if (x === 'cmd' || x === 'bat') eolEl.value = 'crlf';
+    else if (LF_EXT.has(x)) eolEl.value = 'lf';
+  }
+  save();
+}
+
+// --- events ---
+let timer;
+inEl.addEventListener('input', e => {
+  if (e.inputType === 'insertFromPaste') { clearTimeout(timer); run(); if (autoEl.checked) doCopy('Cleaned and copied'); return; }
+  clearTimeout(timer); timer = setTimeout(run, 70);
+});
+document.addEventListener('paste', e => {
+  const a = document.activeElement;
+  if (a === inEl || a === fnameEl || (a && a.isContentEditable)) return;
+  const t = e.clipboardData && e.clipboardData.getData('text/plain');
+  if (t) { e.preventDefault(); setInput(t, true); }
+});
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doCopy(); }
+});
+$('#pasteBtn').addEventListener('click', async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    if (!t) { toast('The clipboard is empty.'); return; }
+    setInput(t, true);
+  } catch (e) { inEl.focus(); toast('Press Ctrl+V to paste into the input.'); }
+});
+$('#copyBtn').addEventListener('click', () => doCopy());
+$('#clearBtn').addEventListener('click', () => { inEl.value = ''; run(); selectTab('edit'); inEl.focus(); });
+$('#dlBtn').addEventListener('click', () => {
+  if (!last.text) { toast('Nothing to download yet. Paste some code first.'); return; }
+  const name = (fnameEl.value.trim() || 'clean.txt').replace(/[\\/:*?"<>|]+/g, '_');
+  const url = URL.createObjectURL(new Blob([finalString()], {type:'text/plain;charset=utf-8'}));
+  const a = document.createElement('a'); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  toast('Downloaded ' + name);
+});
+$('#sampleBtn').addEventListener('click', () => {
+  const tag = s => [...s].map(c => String.fromCodePoint(0xE0000 + c.charCodeAt(0))).join('');
+  setInput([
+    'Bash', 'content_copy',
+    '#!/usr/bin/env bash\u00a0', '',
+    'set\u00a0-euo pipefail\u200b', '',
+    'for f in *.log; do', '',
+    '\u00a0\u00a0echo \u201cArchiving $f\u2026\u201d', '',
+    '\u00a0\u00a0rsync \u2014archive \u2014verbose \u201c$f\u201d backup/' + tag('hidden note'), '',
+    'done', '',
+    'Use code with caution.'
+  ].join('\n'), false);
+  toast('Loaded a sample with typical Gemini junk');
+});
+$('#resetBtn').addEventListener('click', () => { resetOpts(); renderRules(); save(); run(); toast('Rules reset to defaults'); });
+$('#themeBtn').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const dark = cur ? cur === 'dark' : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  theme = dark ? 'light' : 'dark'; applyTheme(); save();
+});
+rulesEl.addEventListener('change', e => {
+  const id = e.target && e.target.dataset ? e.target.dataset.opt : null;
+  if (!id) return;
+  opts[id] = e.target.checked; save(); run();
+});
+eolEl.addEventListener('change', save);
+autoEl.addEventListener('change', save);
+fnameEl.addEventListener('change', onFname);
+
+function selectTab(name){
+  tabs.forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name ? 'true' : 'false'));
+  const ins = name === 'inspect';
+  inEl.hidden = ins; inspectEl.hidden = !ins;
+  if (ins) renderInspect();
+}
+tabs.forEach(b => b.addEventListener('click', () => { selectTab(b.dataset.tab); if (b.dataset.tab === 'edit') inEl.focus(); }));
+
+// drop a file onto the input pane
+const inPane = $('#inPane');
+const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+['dragenter', 'dragover'].forEach(ev => inPane.addEventListener(ev, e => { if (hasFiles(e)) { e.preventDefault(); inPane.classList.add('drop'); } }));
+['dragleave', 'drop'].forEach(ev => inPane.addEventListener(ev, () => inPane.classList.remove('drop')));
+inPane.addEventListener('drop', e => {
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!f) return;
+  e.preventDefault();
+  f.text().then(t => { fnameEl.value = f.name; onFname(); setInput(t, false); toast('Loaded ' + f.name); })
+         .catch(() => toast('Could not read ' + f.name + ' as text.'));
+});
+
+renderRules();
+run();
+})();
+</script>
+</body>
+</html>
